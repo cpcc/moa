@@ -89,7 +89,10 @@ export interface InternalMessageResult {
 }
 
 export function isMoaExecutionError(value: unknown): value is MoaExecutionError {
-  return value instanceof Error && "code" in value && "requestId" in value;
+  // 识别所有带 code 字段的领域错误（MoaExecutionError、ModelExecutionError，
+  // 以及 route.ts 里 Object.assign(new Error(), { code }) 抛出的 INPUT_TOO_LARGE）。
+  // 不强制要求 requestId，因为不是所有错误来源都携带它。
+  return value instanceof Error && typeof (value as { code?: unknown }).code === "string";
 }
 
 export type { DomainErrorCode, Language, Mode, MoaReasonOutput };

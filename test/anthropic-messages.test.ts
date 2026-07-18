@@ -64,4 +64,18 @@ describe("direct Anthropic Messages gateway", () => {
     const body = await response.json() as { type: string };
     expect(body.type).toBe("message");
   });
+
+  it("rejects oversized input with 413 and a real error message", async () => {
+    // 回归测试：超大输入应返回 413 + 真实 message，而非 500 + 兜底文案 "The gateway could not complete the request"
+    const oversized = "x".repeat(3000); // 超过 env.MOA_MAX_INPUT_CHARS=2000
+    const response = await request("/v1/messages", {
+      ...message,
+      messages: [{ role: "user", content: oversized }],
+    }, { Authorization: "Bearer gateway-token" });
+    expect(response.status).toBe(413);
+    const body = await response.json() as { error: { type: string; message: string } };
+    expect(body.error.type).toBe("request_too_large");
+    expect(body.error.message).toBe("request exceeds maximum input size");
+    expect(body.error.message).not.toBe("The gateway could not complete the request");
+  });
 });
