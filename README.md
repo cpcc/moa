@@ -1,4 +1,4 @@
-# MOE
+# MOA
 Cloudflare Workers AI 上的 Mixture-of-Agents 服务
 
 基于 [Mixture-of-Agents 论文](https://arxiv.org/abs/2406.04692)，在 Cloudflare Worker 上实现多层 MoA 推理编排，通过 Anthropic Messages API 和 MCP 两种协议接入 Claude Code / 任意 LLM 客户端。
