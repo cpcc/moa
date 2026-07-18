@@ -5,3 +5,4 @@ dist/
 .env
 worker-configuration.d.ts
 *.log
+docs/
