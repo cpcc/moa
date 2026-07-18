@@ -3,7 +3,21 @@ Cloudflare Workers AI 上的 Mixture-of-Agents 服务
 
 基于 [Mixture-of-Agents 论文](https://arxiv.org/abs/2406.04692)，在 Cloudflare Worker 上实现多层 MoA 推理编排，通过 Anthropic Messages API 和 MCP 两种协议接入 Claude Code / 任意 LLM 客户端。
 
-用多个中小模型组合逼近前沿模型能力——不需要 Claude Fable 5 / gpt-5.6 的预算，也能获得多视角、可复核、低幻觉的复杂任务处理。
+用多个中小模型组合逼近前沿模型能力——不需要 Claude Fable 5 / gpt-5.6-sol 的预算，也能获得多视角、可复核、低幻觉的复杂任务处理。
+
+## 背景
+
+OpenRouter 前阵子在 DRACO 深度研究基准上做了个实验：**Gemini 3 Flash + Kimi K2.6 + DeepSeek V4 Pro** 三个模型 Fusion 起来，得分 **64.7%**，和 Claude Fable 5 单跑的 **65.3%** 只差 0.6 个百分点，而单任务成本大约只有一半。详见 [OpenRouter Fusion](https://openrouter.ai/blog/announcements/fusion-beats-frontier/)。
+
+结论很直接：**单个模型不是终点，多个模型合体很多时候比单模型更强。**
+
+但 OpenRouter 的 Fusion 是云端服务。我更想要的是：
+
+- 模型可以换、供应商可以换、路由策略可以改
+- 跑在免费 / 便宜的边缘推理上
+- 最好支持各种 api 格式
+
+于是就有了这个项目。
 
 ## 架构
 
@@ -171,7 +185,7 @@ bash evalscope/run_eval.sh 10
 
 ### DRACO 深度研究基准
 
-对标 Fable 5 的 65.3% 得分，达标阈值 ≥ 60%：
+DRACO 是 Perplexity AI 提出的深度研究评测集（100 个复杂任务，覆盖学术 / 金融 / 法律 / 医疗 / 技术等 10 个领域），考的是搜索、理解、综合、引用能力。OpenRouter 在此基准上测得 Claude Fable 5 单跑 65.3%，而 Gemini 3 Flash + Kimi K2.6 + DeepSeek V4 Pro 的 Fusion 组合 64.7%——本仓库对标该结果，达标阈值 ≥ 60%：
 
 ```bash
 DATASETS="draco" bash evalscope/run_eval.sh 100
