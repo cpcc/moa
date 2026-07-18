@@ -2,7 +2,7 @@
 
 基于 [Mixture-of-Agents 论文](https://arxiv.org/abs/2406.04692)，在 Cloudflare Worker 上实现多层 MoA 推理编排，通过 Anthropic Messages API 和 MCP 两种协议接入 Claude Code / 任意 LLM 客户端。
 
-用多个中小模型组合逼近前沿模型能力——不需要 GPT-4 / Claude Opus 的预算，也能获得多视角、可复核、低幻觉的复杂任务处理。
+用多个中小模型组合逼近前沿模型能力——不需要 Claude Fable 5 / gpt-5.6 的预算，也能获得多视角、可复核、低幻觉的复杂任务处理。
 
 ## 架构
 
