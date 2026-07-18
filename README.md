@@ -1,124 +1,227 @@
-# MOE Cloudflare Worker
+# MOE — Cloudflare Workers AI 上的 Mixture-of-Agents 服务
 
-面向 Claude Code 的 Cloudflare Workers AI MoA MCP 服务。
+基于 [Mixture-of-Agents 论文](https://arxiv.org/abs/2406.04692)，在 Cloudflare Worker 上实现多层 MoA 推理编排，通过 Anthropic Messages API 和 MCP 两种协议接入 Claude Code / 任意 LLM 客户端。
 
-## 当前实现
+用多个中小模型组合逼近前沿模型能力——不需要 GPT-4 / Claude Opus 的预算，也能获得多视角、可复核、低幻觉的复杂任务处理。
 
-已部署到生产环境并验证通过。生产地址：`https://moe-cloudflare-worker.arthur-162.workers.dev`
+## 架构
 
-已实现的功能：
+```
+请求
+  │
+  ├─ Layer 0: AnySearch 联网检索（可选）
+  │    └─ 检索结果注入 <CONTEXT>，为深度研究任务提供证据
+  │
+  ├─ Layer 1: N 个 proposer 并行（不同模型提供多样化视角）
+  │
+  ├─ Layer 2: judge 冲突分析
+  │    └─ 产出 CONSENSUS / CONFLICTS / OMISSIONS / UNSUPPORTED 清单
+  │
+  └─ Layer 3: aggregator（synthesizer）
+       └─ 基于候选答案 + judge 分析综合最终答案，非简单拼接
+```
 
-- Cloudflare Worker + Workers AI binding `env.AI`；
-- MCP Streamable HTTP 风格的无状态 `/mcp` JSON-RPC 处理；
-- Bearer Token 鉴权（MCP 和 Anthropic API 双通道）；
-- MCP `initialize`、`notifications/initialized`、`tools/list`、`tools/call`；
-- Anthropic Messages API 兼容路由 `/v1/messages`、`/v1/models`；
-- SSE 流式输出（协议级 `text/event-stream`）；
-- 没有 AI binding 的测试/本地环境使用确定性 mock；
-- 有 AI binding 时使用服务端固定模型 `@cf/openai/gpt-oss-120b`；
-- 默认执行三 proposer 并行 + 一个 aggregator 的两层 MoA；
-- 返回最终答案和中间 Agent 结果（含每层 Agent 状态、模型、耗时）；
-- 实施调用次数、并发、超时、重试和输出大小限制；
-- 支持中文、英文和中英混合任务。
+## 功能
 
-尚未实现：Workers AI token 级 streaming、动态模型路由、三层以上 MoA、MCP 资源/prompts。
+| 功能 | 说明 |
+|------|------|
+| Cloudflare Worker + Workers AI | `env.AI` 远程 binding，边缘推理 |
+| Anthropic Messages API | `/v1/messages` 非流式 + SSE 流式，Claude Code 透明接入 |
+| MCP Streamable HTTP | `/mcp` JSON-RPC，工具 `moa_reason` |
+| 三层 MoA 编排 | proposer → judge → synthesizer，可配置为两层 |
+| 联网搜索 | AnySearch / Tavily / SerpAPI 可插拔，best-effort 注入上下文 |
+| 自由模型组合 | 12 个前沿模型可选，URL / MCP / 配置页三入口自由组合 |
+| 模型预设 | Preset A（最强）/ B（均衡）/ C（对标 DeepSeek+Kimi+Qwen） |
+| 调用限制 | 预算 / 并发 / 超时 / 重试 / 输出大小全部可配置 |
+| 中英文支持 | `auto` / `zh-CN` / `en-US` |
+| 配置页 | Web UI 一键生成 curl / MCP JSON 配置 |
 
-## 本地启动
+## 可用模型
+
+| 短名 | Workers AI binding | 特点 |
+|------|-----|------|
+| `kimi-k2.7-code` | `@cf/moonshotai/kimi-k2.7-code` | reasoning + agentic + vision + code |
+| `glm-5.2` | `@cf/zai-org/glm-5.2` | reasoning + agentic + code |
+| `kimi-k2.6` | `@cf/moonshotai/kimi-k2.6` | reasoning + agentic + vision |
+| `nemotron-3-120b-a12b` | `@cf/nvidia/nemotron-3-120b-a12b` | 120B reasoning |
+| `gpt-oss-120b` | `@cf/openai/gpt-oss-120b` | aggregator 默认，便宜 |
+| `gpt-oss-20b` | `@cf/openai/gpt-oss-20b` | fast |
+| `gemma-4-26b-a4b-it` | `@cf/google/gemma-4-26b-a4b-it` | vision + 便宜 |
+| `qwen3-30b-a3b` | `@cf/qwen/qwen3-30b-a3b-fp8` | reasoning |
+| `glm-4.7-flash` | `@cf/zai-org/glm-4.7-flash` | flash |
+| `qwen2.5-coder-32b` | `@cf/qwen/qwen2.5-coder-32b-instruct` | code |
+| `mistral-small-3.1-24b` | `@cf/mistralai/mistral-small-3.1-24b-instruct` | — |
+| `llama-3.3-70b` | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | 70B |
+
+**预设组合**：
+
+| 预设 | 组合 | 说明 |
+|------|------|------|
+| A | `kimi-k2.7-code/glm-5.2/nemotron-3-120b-a12b/kimi-k2.6` | 3 前沿 proposer + kimi-k2.6 aggregator，最强 |
+| B | `kimi-k2.7-code/glm-5.2/nemotron-3-120b-a12b/gpt-oss-120b` | proposer 全前沿，aggregator 省 |
+| C | `kimi-k2.6/qwen3-30b-a3b/glm-5.2/gpt-oss-120b` | 对标 DeepSeek+Kimi+Qwen Fusion |
+
+组合格式：`proposer1/proposer2/.../aggregator`（最后一个为 aggregator）。
+
+## 快速开始
+
+### 部署
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars
 npm run typecheck
-npm test
-npm run dev
+
+# 配置鉴权 token
+cp .dev.vars.example .dev.vars  # 编辑 .dev.vars 填入 token
+
+# 部署到 Cloudflare
+npx wrangler secret put MOA_AUTH_TOKEN
+npm run deploy
 ```
 
-本地 Worker 默认地址为 `http://127.0.0.1:8787`。健康检查：
+### 接入 Claude Code
 
-```bash
-curl http://127.0.0.1:8787/health
-```
-
-## Claude Code 直接配置（Messages API）
-
-如果不使用 MCP，可以让 Claude Code 把本 Worker 当作 Anthropic Messages API 网关。配置文件示例见 `.claude-code.env.example`：
+在 `~/.claude/settings.json` 中配置：
 
 ```json
 {
   "env": {
-    "ANTHROPIC_AUTH_TOKEN": "<与 MOA_AUTH_TOKEN 相同>",
+    "ANTHROPIC_AUTH_TOKEN": "<你的 MOA_AUTH_TOKEN>",
     "ANTHROPIC_BASE_URL": "https://<worker-domain>",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.7-code/glm-5.2/nemotron-3-120b-a12b/kimi-k2.6",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.7-code/glm-5.2/nemotron-3-120b-a12b/gpt-oss-120b",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "moa-haiku",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "moa-opus",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "moa-sonnet",
     "API_TIMEOUT_MS": "300000"
   }
 }
 ```
 
-`ANTHROPIC_BASE_URL` 填 Worker 的域名根地址，不要追加 `/v1`；Claude Code 会请求 `/v1/messages`。当前公开模型别名为 `moa-opus`、`moa-sonnet` 和 `moa-haiku`，服务端会将它们映射到受控的 Workers AI 模型 `@cf/openai/gpt-oss-120b`。
+> `ANTHROPIC_BASE_URL` 填 Worker 域名根地址，不要追加 `/v1`。模型字段可以是别名（`moa-opus`）或组合字符串（含 `/`）。
 
-当前 Messages API 支持文本消息、对话历史和协议级 SSE 流式输出；图片、文件、服务端工具和真实 token 级 streaming 仍未实现。
+### 联网搜索（可选）
 
-## 生产环境 smoke test
-
-将 `WORKER_URL` 和 `TOKEN` 替换为你的实际值：
+为深度研究任务（如 DRACO 基准）启用联网检索：
 
 ```bash
-WORKER_URL="https://moe-cloudflare-worker.arthur-162.workers.dev"
-TOKEN="<your-moa-auth-token>"
+# wrangler.jsonc 已默认启用 anysearch
+# 配置 API key（可选，无 key 也可用，只是限频更低）
+npx wrangler secret put ANYSEARCH_API_KEY
+```
 
-# 健康检查
-curl -s $WORKER_URL/health
+支持的搜索引擎：[AnySearch](https://www.anysearch.com/)（默认）/ Tavily / SerpAPI，通过 `MOA_SEARCH_PROVIDER` 环境变量切换。
 
-# MCP initialize
-curl -s $WORKER_URL/mcp \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+## 配置
 
-# MCP tools/list
-curl -s $WORKER_URL/mcp \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `MOA_AUTH_TOKEN` | — | 鉴权 token（必设） |
+| `MOA_JUDGE_ENABLED` | `false` | 启用三层 MoA（judge 层） |
+| `MOA_SEARCH_PROVIDER` | `none` | 搜索引擎：`anysearch` / `tavily` / `serpapi` / `none` |
+| `MOA_SEARCH_MAX_RESULTS` | `5` | 每次检索返回结果数 |
+| `MOA_MAX_PROPOSERS` | `3` | proposer 数量上限 |
+| `MOA_MAX_AI_CALLS` | `4` | 单次请求 AI 调用预算 |
+| `MOA_MAX_CONCURRENT_AGENTS` | `3` | 并行 Agent 数 |
+| `MOA_REQUEST_TIMEOUT_MS` | `120000` | 请求超时 |
+| `MOA_MAX_OUTPUT_TOKENS` | `16384` | 单 Agent 输出 token 上限 |
+| `ANYSEARCH_API_KEY` | — | AnySearch API key（可选） |
+| `TAVILY_API_KEY` | — | Tavily API key |
+| `SERPAPI_API_KEY` | — | SerpAPI API key |
 
-# MCP tools/call（真实 Workers AI MoA）
-curl -s --max-time 120 $WORKER_URL/mcp \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"moa_reason","arguments":{"task":"解释 Cloudflare Worker 是什么","language":"zh-CN","include_trace":true}}}'
+完整配置见 `wrangler.jsonc`。
 
-# Anthropic Messages API
+## API 端点
 
-curl -s --max-time 120 $WORKER_URL/v1/messages \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/health` | GET | 健康检查（无需鉴权） |
+| `/v1/models` | GET | 模型列表 |
+| `/v1/messages` | POST | Anthropic Messages API（非流式 + SSE） |
+| `/mcp` | POST | MCP JSON-RPC（`moa_reason` 工具） |
+| `/` | GET | 配置页 Web UI |
+
+### 示例
+
+```bash
+WORKER_URL="https://your-worker.workers.dev"
+TOKEN="<your-token>"
+
+# Messages API — 用预设组合
+curl -s $WORKER_URL/v1/messages \
+  -H "x-api-key: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"kimi-k2.7-code/glm-5.2/nemotron-3-120b-a12b/kimi-k2.6","max_tokens":1024,"messages":[{"role":"user","content":"解释 Cloudflare Worker 是什么"}]}'
+
+# Messages API — 用别名
+curl -s $WORKER_URL/v1/messages \
+  -H "x-api-key: $TOKEN" \
+  -H "Content-Type: application/json" \
   -d '{"model":"moa-opus","max_tokens":256,"messages":[{"role":"user","content":"What is 2+2?"}]}'
 ```
 
-## Cloudflare 配置
+## 评测
 
-`wrangler.jsonc` 已声明：
-
-```jsonc
-{
-  "ai": { "binding": "AI", "remote": true }
-}
-```
-
-本地 `wrangler dev` 使用 `.dev.vars` 中的 `MOA_AUTH_TOKEN`。`.dev.vars.example` 只是模板，不会自动成为本地 secret；请复制后填写真实的本地测试 token：
+### 基础基准（GSM8K / ARC / C-Eval）
 
 ```bash
-cp .dev.vars.example .dev.vars
-# 将 replace-with-a-long-random-token 替换为本地测试 token
+bash evalscope/run_eval.sh 10
 ```
 
-生产环境的鉴权 token 应通过 Cloudflare Secret 配置，不要写入 `wrangler.jsonc` 或源码：
+历史结果：70 题，整体准确率 98.6%。
+
+### DRACO 深度研究基准
+
+对标 Fable 5 的 65.3% 得分，达标阈值 ≥ 60%：
 
 ```bash
-npx wrangler secret put MOA_AUTH_TOKEN
-npm run deploy
+DATASETS="draco" bash evalscope/run_eval.sh 100
 ```
 
-Workers AI 真实调用会根据 `env.AI` 是否存在选择；没有 binding 时使用 mock，有 binding 时执行受限的两层 MoA。部署前应确认当前账户计划、`WORKERS_AI_REGION`、模型可用性和预算限制。
+DRACO 100 个深度研究任务，4 维度 rubric（factual accuracy / breadth & depth / presentation quality / citation quality），LLM-as-judge 评分。需启用联网搜索。
+
+## 项目结构
+
+```
+src/
+├── index.ts              # 入口路由
+├── config.ts             # 运行时配置
+├── contracts.ts          # 类型定义
+├── env.ts                # 环境变量接口
+├── anthropic/            # Anthropic Messages API 兼容层
+│   ├── route.ts          # /v1/messages 路由
+│   ├── stream.ts         # SSE 流式
+│   └── models.ts         # 公开模型别名
+├── moa/                  # MoA 编排核心
+│   ├── orchestrator.ts   # 多层编排（Layer 0-3）
+│   ├── search.ts         # 联网搜索 provider
+│   ├── prompts.ts        # proposer/judge/aggregator prompt
+│   ├── profiles.ts       # 执行计划
+│   └── model-selection.ts # 模型组合解析
+├── workers-ai/           # Workers AI 适配
+│   ├── adapter.ts        # 调用 + 重试
+│   └── models.ts         # 模型白名单 + 预设
+├── mcp/                  # MCP 协议
+└── limits/               # 预算/并发/超时
+evalscope/                # 评测脚本
+wrangler.jsonc            # Cloudflare Worker 配置
+```
+
+## 本地开发
+
+```bash
+npm install
+cp .dev.vars.example .dev.vars  # 填入本地测试 token
+npm run dev                      # http://127.0.0.1:8787
+```
+
+## 技术栈
+
+- Cloudflare Workers AI（边缘推理，12+ 模型可选）
+- TypeScript + Wrangler 4
+- Anthropic Messages API 兼容协议
+- MCP（Model Context Protocol）Streamable HTTP
+- AnySearch / Tavily / SerpAPI（联网搜索）
+- EvalScope（评测框架）
+
+## License
+
+MIT
