@@ -47,7 +47,10 @@ function validateContent(value: unknown): string {
 function validateRequest(value: unknown, maxInputChars: number): AnthropicMessagesRequest {
   if (!isRecord(value)) throw new Error("request body must be an object");
   if (typeof value.model !== "string" || value.model === "") throw new Error("model is required");
-  if (!getPublicModel(value.model)) throw Object.assign(new Error("model not found"), { status: 404 });
+  // model 可以是别名（moa-sonnet）或组合字符串（kimi-k2.7-code/.../gpt-oss-120b，含 /）
+  if (!value.model.includes("/") && !getPublicModel(value.model)) {
+    throw Object.assign(new Error("model not found"), { status: 404 });
+  }
   if (!Number.isInteger(value.max_tokens) || Number(value.max_tokens) < 1) throw new Error("max_tokens must be a positive integer");
   if (!Array.isArray(value.messages) || value.messages.length === 0) throw new Error("messages is required");
   let total = 0;
@@ -100,7 +103,9 @@ export async function handleAnthropicRequest(request: Request, env: Env): Promis
   try {
     const body = await request.json();
     const input = validateRequest(body, getRuntimeConfig(env).maxInputChars);
-    const models = new URL(request.url).searchParams.get("models") ?? undefined;
+    const queryModels = new URL(request.url).searchParams.get("models");
+    // 优先用 ?models= 查询参数；否则若 model 字段含 / 视为组合 spec
+    const models = queryModels ?? (input.model.includes("/") ? input.model : undefined);
     const output = await runConfiguredMoaReason({ task: taskFromRequest(input), language: "auto", include_trace: false, models }, getRuntimeConfig(env), env, requestId);
     const response = messageResponse(input.model, [{ type: "text", text: output.answer }], "end_turn", { input_tokens: 0, output_tokens: 0 });
     return input.stream ? messageStream(response) : json(response, 200, requestId);
