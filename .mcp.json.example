@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "moa": {
+      "type": "http",
+      "url": "https://moe-cloudflare-worker.arthur-162.workers.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MOA_AUTH_TOKEN}"
+      }
+    }
+  }
+}

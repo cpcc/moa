@@ -1,0 +1,5 @@
+MOA_AUTH_TOKEN=replace-with-a-long-random-token
+# Optional local limits (server defaults apply when omitted)
+# MOA_MAX_AI_CALLS=4
+# MOA_MAX_CONCURRENT_AGENTS=3
+# MOA_MIN_SUCCESSFUL_PROPOSERS=1

@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "moe-cloudflare-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-16",
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+  "vars": {
+    "MOA_DEFAULT_PROFILE": "balanced",
+    "MOA_MAX_LAYERS": "2",
+    "MOA_MAX_PROPOSERS": "3",
+    "MOA_REQUEST_TIMEOUT_MS": "60000",
+    "MOA_MAX_INPUT_CHARS": "12000",
+    "MOA_MAX_OUTPUT_CHARS": "12000",
+    "MOA_MAX_TOTAL_RESPONSE_CHARS": "50000",
+    "MOA_MAX_RETRIES": "1",
+    "MOA_MAX_AI_CALLS": "4",
+    "MOA_MAX_CONCURRENT_AGENTS": "3",
+    "MOA_MIN_SUCCESSFUL_PROPOSERS": "1",
+    "MOA_LOG_LEVEL": "info",
+    "CLOUDFLARE_ACCOUNT_PLAN": "free",
+    "WORKERS_AI_REGION": "US"
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  }
+}
