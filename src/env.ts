@@ -11,6 +11,7 @@ export interface Env {
   MOA_REQUEST_TIMEOUT_MS?: string;
   MOA_MAX_INPUT_CHARS?: string;
   MOA_MAX_OUTPUT_CHARS?: string;
+  MOA_MAX_OUTPUT_TOKENS?: string;
   MOA_MAX_TOTAL_RESPONSE_CHARS?: string;
   MOA_MAX_RETRIES?: string;
   MOA_MAX_AI_CALLS?: string;

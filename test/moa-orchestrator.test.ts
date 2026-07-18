@@ -68,4 +68,26 @@ describe("two-layer MoA orchestrator", () => {
       .rejects.toMatchObject({ code: "ALL_AGENTS_FAILED", requestId: "req_all_failed" });
     expect(calls).toBe(3);
   });
+
+  it("degrades to best candidate when aggregator fails but proposers succeeded", async () => {
+    // aggregator 失败时，应降级返回第一个成功 proposer 的答案，而非抛 500
+    const fake = runner(async (request) => {
+      if (request.prompt.includes("final aggregator")) {
+        throw new Error("aggregator boom");
+      }
+      return { model: request.model, text: `candidate-${request.model.split("/").pop()}`, duration_ms: 0 };
+    });
+    const output = await runMoaReason({ task: "task", language: "en-US" }, config(), fake, "req_agg_fail");
+    // 返回的是第一个成功 proposer 的候选答案
+    expect(output.answer).toContain("candidate-");
+    expect(output.answer).not.toBe("answer");
+    // aggregator 标记为 failed
+    const agg = output.intermediate_results[1]?.agents[0];
+    expect(agg?.status).toBe("failed");
+    expect(agg?.role).toBe("aggregator");
+    // degraded 标记为 true
+    expect(output.trace?.degraded).toBe(true);
+    // 所有 3 个 proposer 应该都成功
+    expect(output.intermediate_results[0]?.agents.filter((a) => a.status === "succeeded")).toHaveLength(3);
+  });
 });

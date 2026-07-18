@@ -10,6 +10,7 @@ export interface RuntimeConfig {
   requestTimeoutMs: number;
   maxInputChars: number;
   maxOutputChars: number;
+  maxOutputTokens: number;
   maxTotalResponseChars: number;
   maxRetries: number;
   maxAiCalls: number;
@@ -42,6 +43,7 @@ export function getRuntimeConfig(env: Env): RuntimeConfig {
     requestTimeoutMs: positiveInt(env.MOA_REQUEST_TIMEOUT_MS, 60_000),
     maxInputChars: positiveInt(env.MOA_MAX_INPUT_CHARS, 100_000),
     maxOutputChars: positiveInt(env.MOA_MAX_OUTPUT_CHARS, 12_000),
+    maxOutputTokens: positiveInt(env.MOA_MAX_OUTPUT_TOKENS, 8192),
     maxTotalResponseChars: positiveInt(env.MOA_MAX_TOTAL_RESPONSE_CHARS, 200_000),
     maxRetries: nonNegativeInt(env.MOA_MAX_RETRIES, 1),
     maxAiCalls: positiveInt(env.MOA_MAX_AI_CALLS, 4),

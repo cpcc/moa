@@ -78,7 +78,7 @@ export async function runRealMoaReason(
   requestId = createRequestId(),
 ): Promise<MoaReasonOutput> {
   if (!env.AI) throw new Error("Workers AI binding is unavailable");
-  return runMoaReason(input, config, new WorkersAIAdapter(env.AI, config.maxRetries), requestId);
+  return runMoaReason(input, config, new WorkersAIAdapter(env.AI, config.maxRetries, config.maxOutputTokens), requestId);
 }
 
 export async function runConfiguredMoaReason(

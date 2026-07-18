@@ -24,7 +24,7 @@ describe("Workers AI adapter", () => {
     expect(received?.model).toBe(proposerModel);
     expect(received?.model).not.toBe(AGGREGATOR_MODEL);
     expect(result.model).toBe(proposerModel);
-    expect(received?.input).toEqual({ messages: [{ role: "user", content: "prompt" }] });
+    expect(received?.input).toEqual({ messages: [{ role: "user", content: "prompt" }], max_tokens: 8192 });
     expect(received?.signal).toBeInstanceOf(AbortSignal);
   });
 

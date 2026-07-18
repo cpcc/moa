@@ -137,6 +137,29 @@ export async function runMoaReason(
     };
   } catch (error) {
     aggregateResult = failedAgent(aggregatorId, "aggregator", plan.aggregatorModel, Date.now() - aggregatorStarted, error);
+    // 降级：aggregator 失败但已有成功 proposer 时，返回最佳候选答案而非直接 500
+    // 能到这里说明 successful.length >= minSuccessfulProposers >= 1，降级一定可用
+    if (successful.length > 0) {
+      const bestCandidate = truncateOutput(successful[0].output, config.maxOutputChars);
+      const layerTwo: IntermediateLayerResult = {
+        layer: 2,
+        agents: [aggregateResult],
+        aggregation_input: { type: "candidate_summary", content: boundedCandidates.value },
+        aggregation_output: bestCandidate.value,
+      };
+      return {
+        request_id: requestId,
+        answer: bestCandidate.value,
+        intermediate_results: [layerOne, layerTwo],
+        trace: input.include_trace === false ? undefined : {
+          total_duration_ms: Date.now() - started,
+          degraded: true,
+          mode,
+          language,
+          call_count: budget.count,
+        },
+      };
+    }
     throw new MoaExecutionError(
       error instanceof MoaExecutionError ? error.code : "INTERNAL_ERROR",
       requestId,

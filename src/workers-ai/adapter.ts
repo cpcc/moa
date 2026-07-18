@@ -52,6 +52,7 @@ export class WorkersAIAdapter implements TextRunner {
   constructor(
     private readonly ai: Ai,
     private readonly maxRetries: number,
+    private readonly maxTokens: number = 8192,
   ) {}
 
   async runText(request: TextRunnerRequest): Promise<TextRunnerResult> {
@@ -71,6 +72,7 @@ export class WorkersAIAdapter implements TextRunner {
       try {
         const raw = await this.ai.run<unknown>(request.model, {
           messages: [{ role: "user", content: request.prompt }],
+          max_tokens: this.maxTokens,
         }, { signal: controller.signal });
         const normalized = normalizeModelResponse(raw);
         return {
