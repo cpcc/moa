@@ -2,6 +2,7 @@ import type { Env } from "../env";
 import type { JsonRpcRequest, JsonRpcResponse, MoaReasonInput, MoaExecutionError } from "../contracts";
 import { getRuntimeConfig } from "../config";
 import { runConfiguredMoaReason } from "../tools/moa-reason";
+import { ModelSelectionError } from "../moa/model-selection";
 import {
   JSON_RPC_INTERNAL_ERROR,
   JSON_RPC_INVALID_PARAMS,
@@ -55,6 +56,11 @@ function parseInput(value: unknown, maxInputChars: number): MoaReasonInput {
     throw new InputValidationError("include_trace must be boolean");
   }
 
+  const models = value.models;
+  if (models !== undefined && typeof models !== "string") {
+    throw new InputValidationError("models must be a string");
+  }
+
   return {
     task: value.task,
     language: language as MoaReasonInput["language"],
@@ -62,6 +68,7 @@ function parseInput(value: unknown, maxInputChars: number): MoaReasonInput {
     layer_count: value.layer_count as number | undefined,
     proposer_count: value.proposer_count as number | undefined,
     include_trace: value.include_trace as boolean | undefined,
+    models: models as string | undefined,
   };
 }
 
@@ -153,7 +160,7 @@ export async function handleMcpRequest(request: Request, env: Env): Promise<Resp
     }
   } catch (error) {
     if (rpcRequest.method === "tools/call") {
-      if (error instanceof InputValidationError) {
+      if (error instanceof InputValidationError || error instanceof ModelSelectionError) {
         response = rpcError(id, JSON_RPC_INVALID_PARAMS, error.message);
       } else {
         const execution = error as Partial<MoaExecutionError>;

@@ -2,6 +2,7 @@ import type { Env } from "./env";
 import { authorize, authorizeAnthropic } from "./auth";
 import { handleAnthropicRequest, modelsResponse } from "./anthropic/route";
 import { handleMcpRequest } from "./mcp/server";
+import { configPageResponse } from "./config-page";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -16,6 +17,10 @@ function json(data: unknown, status = 200): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === "/") {
+      return configPageResponse(request);
+    }
 
     if (url.pathname === "/health") {
       return json({ ok: true, service: "moa", version: "0.1.0" });

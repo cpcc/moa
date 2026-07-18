@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MoaReasonInput, TextRunner, TextRunnerRequest, TextRunnerResult } from "../src/contracts";
 import { runMoaReason } from "../src/moa/orchestrator";
+import type { ModelSelection } from "../src/moa/model-selection";
 import { getRuntimeConfig } from "../src/config";
 import { AGGREGATOR_MODEL, PROPOSER_MODELS } from "../src/workers-ai/models";
 
@@ -89,5 +90,24 @@ describe("two-layer MoA orchestrator", () => {
     expect(output.trace?.degraded).toBe(true);
     // 所有 3 个 proposer 应该都成功
     expect(output.intermediate_results[0]?.agents.filter((a) => a.status === "succeeded")).toHaveLength(3);
+  });
+
+  it("uses custom model selection when provided", async () => {
+    const requests: TextRunnerRequest[] = [];
+    const fake = runner(async (request) => {
+      requests.push(request);
+      return { model: request.model, text: request.prompt.includes("final aggregator") ? "synth" : "cand", duration_ms: 0 };
+    });
+    const selection: ModelSelection = {
+      proposers: ["@cf/moonshotai/kimi-k2.7-code", "@cf/zai-org/glm-5.2"],
+      aggregator: "@cf/moonshotai/kimi-k2.6",
+    };
+    const output = await runMoaReason({ task: "task" }, config(), fake, "req_sel", selection);
+    const proposerModels = requests.slice(0, 2).map((r) => r.model);
+    expect(proposerModels).toEqual([...selection.proposers]);
+    expect(requests[2]?.model).toBe(selection.aggregator);
+    expect(output.intermediate_results[0]?.agents).toHaveLength(2);
+    expect(output.intermediate_results[0]?.agents.map((a) => a.model)).toEqual([...selection.proposers]);
+    expect(output.intermediate_results[1]?.agents[0]?.model).toBe(selection.aggregator);
   });
 });

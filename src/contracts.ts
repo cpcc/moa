@@ -56,6 +56,12 @@ export interface MoaReasonInput {
   layer_count?: number;
   proposer_count?: number;
   include_trace?: boolean;
+  /**
+   * 模型组合字符串，格式 `proposer1/proposer2/.../aggregator`（最后一个为 aggregator）。
+   * 每段可用短名（如 `kimi-k2.7-code`）或完整 binding ID。空 / undefined 表示用默认组合。
+   * 详见 `src/moa/model-selection.ts` 的 parseModelSelection。
+   */
+  models?: string;
 }
 
 export interface IntermediateAgentResult {

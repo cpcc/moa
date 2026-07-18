@@ -100,7 +100,8 @@ export async function handleAnthropicRequest(request: Request, env: Env): Promis
   try {
     const body = await request.json();
     const input = validateRequest(body, getRuntimeConfig(env).maxInputChars);
-    const output = await runConfiguredMoaReason({ task: taskFromRequest(input), language: "auto", include_trace: false }, getRuntimeConfig(env), env, requestId);
+    const models = new URL(request.url).searchParams.get("models") ?? undefined;
+    const output = await runConfiguredMoaReason({ task: taskFromRequest(input), language: "auto", include_trace: false, models }, getRuntimeConfig(env), env, requestId);
     const response = messageResponse(input.model, [{ type: "text", text: output.answer }], "end_turn", { input_tokens: 0, output_tokens: 0 });
     return input.stream ? messageStream(response) : json(response, 200, requestId);
   } catch (error) {

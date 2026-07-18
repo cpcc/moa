@@ -10,6 +10,7 @@ import {
 import { CallBudget } from "../limits/budget";
 import { Semaphore } from "../limits/concurrency";
 import { createDeadline } from "../limits/timeout";
+import type { ModelSelection } from "./model-selection";
 import { getExecutionPlan, proposerModelFor } from "./profiles";
 import { buildAggregatorPrompt, buildProposerPrompt } from "./prompts";
 import { failedAgent, truncateOutput } from "./results";
@@ -27,11 +28,12 @@ export async function runMoaReason(
   config: RuntimeConfig,
   runner: TextRunner,
   requestId: string,
+  selection?: ModelSelection,
 ): Promise<MoaReasonOutput> {
   const started = Date.now();
   const language = languageFor(input);
   const mode = modeFor(input, config);
-  const plan = getExecutionPlan(input, config);
+  const plan = getExecutionPlan(input, config, selection);
   const deadline = createDeadline(config.requestTimeoutMs);
   const budget = new CallBudget(config.maxAiCalls);
   const semaphore = new Semaphore(config.maxConcurrentAgents);

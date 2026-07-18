@@ -2,6 +2,7 @@ import type { IntermediateLayerResult, MoaReasonInput, MoaReasonOutput } from ".
 import type { RuntimeConfig } from "../config";
 import type { Env } from "../env";
 import { WorkersAIAdapter } from "../workers-ai/adapter";
+import { parseModelSelection } from "../moa/model-selection";
 import { runMoaReason } from "../moa/orchestrator";
 
 export function createRequestId(): string {
@@ -78,7 +79,8 @@ export async function runRealMoaReason(
   requestId = createRequestId(),
 ): Promise<MoaReasonOutput> {
   if (!env.AI) throw new Error("Workers AI binding is unavailable");
-  return runMoaReason(input, config, new WorkersAIAdapter(env.AI, config.maxRetries, config.maxOutputTokens), requestId);
+  const selection = parseModelSelection(input.models, config);
+  return runMoaReason(input, config, new WorkersAIAdapter(env.AI, config.maxRetries, config.maxOutputTokens), requestId, selection);
 }
 
 export async function runConfiguredMoaReason(

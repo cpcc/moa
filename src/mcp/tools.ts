@@ -33,6 +33,11 @@ export const MOA_REASON_TOOL = {
         type: "boolean",
         description: "是否返回执行元数据；中间 Agent 结果始终返回。",
       },
+      models: {
+        type: "string",
+        description:
+          '模型组合字符串，格式 `proposer1/proposer2/.../aggregator`（最后一个为 aggregator）。每段可用短名（如 `kimi-k2.7-code`）或完整 binding ID。例如 `kimi-k2.7-code/glm-5.2/nemotron-3-120b-a12b/gpt-oss-120b`。留空用默认组合。',
+      },
     },
   },
 } as const;
