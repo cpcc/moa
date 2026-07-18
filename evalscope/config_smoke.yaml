@@ -1,0 +1,30 @@
+# EvalScope 冒烟测试配置 - 验证 moe API 评测链路
+# 用法:
+#   source .venv-evalscope/bin/activate
+#   export MOA_AUTH_TOKEN=$(python3 -c "import json;print(json.load(open('/Users/ckj/.claude.json'))['mcpServers']['moa']['headers']['Authorization'].replace('Bearer ',''))")
+#   evalscope eval --task-config evalscope/config_smoke.yaml
+
+# 模型配置
+model: moa-sonnet
+eval_type: anthropic_api
+api_url: https://moe-cloudflare-worker.arthur-162.workers.dev
+api_key: ${MOA_AUTH_TOKEN}
+
+# 数据集
+datasets:
+  - gsm8k
+
+# 仅评测 3 条样本，快速验证链路
+limit: 3
+
+# 生成参数
+generation_config:
+  max_tokens: 1024
+  temperature: 0.0
+  timeout: 120
+
+# 工作目录
+work_dir: outputs/smoke_test
+
+# 忽略出错样本，避免单条失败中断整个流程
+ignore_errors: true
