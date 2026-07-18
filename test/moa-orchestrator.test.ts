@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MoaReasonInput, TextRunner, TextRunnerRequest, TextRunnerResult } from "../src/contracts";
 import { runMoaReason } from "../src/moa/orchestrator";
 import { getRuntimeConfig } from "../src/config";
+import { AGGREGATOR_MODEL, PROPOSER_MODELS } from "../src/workers-ai/models";
 
 function config() {
   return getRuntimeConfig({
@@ -37,6 +38,14 @@ describe("two-layer MoA orchestrator", () => {
     expect(output.intermediate_results).toHaveLength(2);
     expect(output.intermediate_results[0].agents).toHaveLength(3);
     expect(requests[3]?.prompt).toContain("Candidate 1");
+    // 多模型支持：3 个 proposer 应收到 3 个不同的模型，aggregator 收到 AGGREGATOR_MODEL
+    const proposerModels = requests.slice(0, 3).map((r) => r.model);
+    expect(new Set(proposerModels).size).toBe(3);
+    expect(proposerModels).toEqual([...PROPOSER_MODELS]);
+    expect(requests[3]?.model).toBe(AGGREGATOR_MODEL);
+    // intermediate_results 里记录的 model 也应是真实模型名
+    expect(output.intermediate_results[0]?.agents.map((a) => a.model)).toEqual([...PROPOSER_MODELS]);
+    expect(output.intermediate_results[1]?.agents[0]?.model).toBe(AGGREGATOR_MODEL);
   });
 
   it("continues after one proposer failure", async () => {

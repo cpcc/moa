@@ -10,7 +10,7 @@ import {
 import { CallBudget } from "../limits/budget";
 import { Semaphore } from "../limits/concurrency";
 import { createDeadline } from "../limits/timeout";
-import { getExecutionPlan } from "./profiles";
+import { getExecutionPlan, proposerModelFor } from "./profiles";
 import { buildAggregatorPrompt, buildProposerPrompt } from "./prompts";
 import { failedAgent, truncateOutput } from "./results";
 
@@ -42,14 +42,15 @@ export async function runMoaReason(
     Array.from({ length: plan.proposerCount }, (_, offset) => {
       const index = offset + 1;
       const agentId = `layer-1-agent-${index}`;
+      const proposerModel = proposerModelFor(plan, index);
       return semaphore.use(async () => {
         const callStarted = Date.now();
         if (deadline.expired() || !budget.reserve()) {
-          return { index, result: failedAgent(agentId, "proposer", plan.proposerModel, Date.now() - callStarted, new MoaExecutionError("BUDGET_EXCEEDED", requestId, "AI call budget exceeded")) };
+          return { index, result: failedAgent(agentId, "proposer", proposerModel, Date.now() - callStarted, new MoaExecutionError("BUDGET_EXCEEDED", requestId, "AI call budget exceeded")) };
         }
         try {
           const result = await runner.runText({
-            model: plan.proposerModel,
+            model: proposerModel,
             prompt: buildProposerPrompt(input.task, language, index),
             requestId,
             deadline: deadline.at,
@@ -70,7 +71,7 @@ export async function runMoaReason(
             },
           };
         } catch (error) {
-          return { index, result: failedAgent(agentId, "proposer", plan.proposerModel, Date.now() - callStarted, error) };
+          return { index, result: failedAgent(agentId, "proposer", proposerModel, Date.now() - callStarted, error) };
         }
       });
     }),

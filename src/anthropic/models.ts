@@ -7,7 +7,7 @@ export interface PublicModel {
   created_at: string;
   input_token_limit: number;
   output_token_limit: number;
-  internalModel: typeof MODEL_ID;
+  internalModel: string;
 }
 
 const aliases = ["moa-opus", "moa-sonnet", "moa-haiku"] as const;

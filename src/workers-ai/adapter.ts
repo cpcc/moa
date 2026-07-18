@@ -1,6 +1,6 @@
 import type { Ai } from "../env";
 import type { DomainErrorCode, ModelUsage, TextRunner, TextRunnerRequest, TextRunnerResult } from "../contracts";
-import { MODEL_ID, isAllowedModel } from "./models";
+import { isAllowedModel } from "./models";
 import { normalizeModelResponse } from "./normalize";
 
 export class ModelExecutionError extends Error {
@@ -69,12 +69,12 @@ export class WorkersAIAdapter implements TextRunner {
       const timer = setTimeout(() => controller.abort(), remaining);
       const started = Date.now();
       try {
-        const raw = await this.ai.run<unknown>(MODEL_ID, {
+        const raw = await this.ai.run<unknown>(request.model, {
           messages: [{ role: "user", content: request.prompt }],
         }, { signal: controller.signal });
         const normalized = normalizeModelResponse(raw);
         return {
-          model: MODEL_ID,
+          model: request.model,
           text: normalized.text,
           duration_ms: Date.now() - started,
           usage: usageFrom(raw),
