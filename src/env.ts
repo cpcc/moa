@@ -17,6 +17,7 @@ export interface Env {
   MOA_MAX_AI_CALLS?: string;
   MOA_MAX_CONCURRENT_AGENTS?: string;
   MOA_MIN_SUCCESSFUL_PROPOSERS?: string;
+  MOA_JUDGE_ENABLED?: string;
   CLOUDFLARE_ACCOUNT_PLAN?: string;
   WORKERS_AI_REGION?: string;
 }

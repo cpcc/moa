@@ -16,6 +16,7 @@ export interface RuntimeConfig {
   maxAiCalls: number;
   maxConcurrentAgents: number;
   minSuccessfulProposers: number;
+  judgeEnabled: boolean;
   accountPlan: string;
   region: string;
 }
@@ -49,6 +50,7 @@ export function getRuntimeConfig(env: Env): RuntimeConfig {
     maxAiCalls: positiveInt(env.MOA_MAX_AI_CALLS, 4),
     maxConcurrentAgents: positiveInt(env.MOA_MAX_CONCURRENT_AGENTS, 3),
     minSuccessfulProposers: positiveInt(env.MOA_MIN_SUCCESSFUL_PROPOSERS, 1),
+    judgeEnabled: env.MOA_JUDGE_ENABLED === "true",
     accountPlan: env.CLOUDFLARE_ACCOUNT_PLAN ?? "free",
     region: env.WORKERS_AI_REGION ?? "US",
   };

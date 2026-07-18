@@ -66,7 +66,7 @@ export interface MoaReasonInput {
 
 export interface IntermediateAgentResult {
   agent_id: string;
-  role: "proposer" | "aggregator";
+  role: "proposer" | "aggregator" | "judge";
   model: string;
   status: "succeeded" | "failed";
   output: string;

@@ -111,3 +111,79 @@ describe("two-layer MoA orchestrator", () => {
     expect(output.intermediate_results[1]?.agents[0]?.model).toBe(selection.aggregator);
   });
 });
+
+describe("three-layer MoA with judge layer", () => {
+  function judgeConfig() {
+    return getRuntimeConfig({
+      MOA_MAX_AI_CALLS: "5",
+      MOA_MAX_CONCURRENT_AGENTS: "3",
+      MOA_MAX_PROPOSERS: "3",
+      MOA_REQUEST_TIMEOUT_MS: "2000",
+      MOA_JUDGE_ENABLED: "true",
+    });
+  }
+
+  it("runs proposer→judge→aggregator when judgeEnabled", async () => {
+    const requests: TextRunnerRequest[] = [];
+    const fake = runner(async (request) => {
+      requests.push(request);
+      if (request.prompt.includes("You are the judge")) {
+        return { model: request.model, text: "CONSENSUS: all agree on 391. CONFLICTS: none.", duration_ms: 0 };
+      }
+      if (request.prompt.includes("final aggregator")) {
+        return { model: request.model, text: "final-answer", duration_ms: 0 };
+      }
+      return { model: request.model, text: `candidate-${request.model.split("/").pop()}`, duration_ms: 0 };
+    });
+    const output = await runMoaReason({ task: "task" }, judgeConfig(), fake, "req_judge");
+    // 5 calls: 3 proposer + 1 judge + 1 aggregator
+    expect(requests).toHaveLength(5);
+    // 3 layers
+    expect(output.intermediate_results).toHaveLength(3);
+    expect(output.intermediate_results[0]?.layer).toBe(1);
+    expect(output.intermediate_results[0]?.agents).toHaveLength(3);
+    expect(output.intermediate_results[0]?.agents[0]?.role).toBe("proposer");
+    // judge layer
+    expect(output.intermediate_results[1]?.layer).toBe(2);
+    const judge = output.intermediate_results[1]?.agents[0];
+    expect(judge?.role).toBe("judge");
+    expect(judge?.status).toBe("succeeded");
+    // aggregator layer
+    expect(output.intermediate_results[2]?.layer).toBe(3);
+    expect(output.intermediate_results[2]?.agents[0]?.role).toBe("aggregator");
+    expect(output.answer).toBe("final-answer");
+    // aggregator prompt should carry the judge analysis
+    const aggRequest = requests[4];
+    expect(aggRequest?.prompt).toContain("<ANALYSIS>");
+    expect(aggRequest?.prompt).toContain("CONSENSUS");
+  });
+
+  it("degrades when judge fails (aggregator still runs without analysis)", async () => {
+    const requests: TextRunnerRequest[] = [];
+    const fake = runner(async (request) => {
+      requests.push(request);
+      if (request.prompt.includes("You are the judge")) {
+        throw new Error("judge boom");
+      }
+      if (request.prompt.includes("final aggregator")) {
+        return { model: request.model, text: "answer", duration_ms: 0 };
+      }
+      return { model: request.model, text: "candidate", duration_ms: 0 };
+    });
+    const output = await runMoaReason({ task: "task" }, judgeConfig(), fake, "req_judge_fail");
+    // aggregator still produced an answer
+    expect(output.answer).toBe("answer");
+    expect(output.intermediate_results).toHaveLength(3);
+    // judge marked failed
+    const judge = output.intermediate_results[1]?.agents[0];
+    expect(judge?.role).toBe("judge");
+    expect(judge?.status).toBe("failed");
+    // aggregator succeeded
+    expect(output.intermediate_results[2]?.agents[0]?.status).toBe("succeeded");
+    // degraded flag set
+    expect(output.trace?.degraded).toBe(true);
+    // aggregator must NOT carry analysis (judge failed)
+    const aggRequest = requests[4];
+    expect(aggRequest?.prompt).not.toContain("<ANALYSIS>");
+  });
+});
