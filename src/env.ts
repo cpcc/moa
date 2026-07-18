@@ -20,4 +20,10 @@ export interface Env {
   MOA_JUDGE_ENABLED?: string;
   CLOUDFLARE_ACCOUNT_PLAN?: string;
   WORKERS_AI_REGION?: string;
+  // Web search（DRACO 深度研究任务用，见 docs/DRACO接入方案.md §3.1）
+  MOA_SEARCH_PROVIDER?: string;
+  ANYSEARCH_API_KEY?: string;
+  TAVILY_API_KEY?: string;
+  SERPAPI_API_KEY?: string;
+  MOA_SEARCH_MAX_RESULTS?: string;
 }

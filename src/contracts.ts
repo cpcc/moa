@@ -92,6 +92,8 @@ export interface MoaReasonOutput {
     mode: Mode;
     language: Language;
     call_count?: number;
+    /** 是否使用了联网检索（DRACO 深度研究任务）。 */
+    search_used?: boolean;
   };
 }
 

@@ -14,6 +14,7 @@ import type { ModelSelection } from "./model-selection";
 import { getExecutionPlan, proposerModelFor } from "./profiles";
 import { buildAggregatorPrompt, buildJudgePrompt, buildProposerPrompt } from "./prompts";
 import { failedAgent, truncateOutput } from "./results";
+import { formatSearchContext, searchForTask } from "./search";
 
 function languageFor(input: MoaReasonInput): Language {
   return input.language ?? "auto";
@@ -40,6 +41,21 @@ export async function runMoaReason(
   const proposerAgents: IntermediateAgentResult[] = [];
   const candidateOutputs: string[] = [];
 
+  // Layer 0 (optional): 联网检索——为 DRACO 等深度研究任务提供证据上下文
+  // best-effort：失败 / 未配置时返回空，不阻断 MoA 流程
+  let searchContext = "";
+  let searchUsed = false;
+  if (config.search.enabled) {
+    try {
+      const searchResults = await searchForTask(input.task, config.search, deadline.at);
+      searchContext = formatSearchContext(searchResults);
+      searchUsed = searchContext !== "";
+    } catch {
+      // 检索失败不阻断主流程
+      searchContext = "";
+    }
+  }
+
   // Layer 1: proposers 并行
   const proposerResults = await Promise.all(
     Array.from({ length: plan.proposerCount }, (_, offset) => {
@@ -54,7 +70,7 @@ export async function runMoaReason(
         try {
           const result = await runner.runText({
             model: proposerModel,
-            prompt: buildProposerPrompt(input.task, language, index),
+            prompt: buildProposerPrompt(input.task, language, index, searchContext || undefined),
             requestId,
             deadline: deadline.at,
             reserveCall: () => budget.reserve(),
@@ -195,6 +211,7 @@ export async function runMoaReason(
         mode,
         language,
         call_count: budget.count,
+        search_used: searchUsed,
       },
     };
   } catch (error) {
@@ -222,6 +239,7 @@ export async function runMoaReason(
           mode,
           language,
           call_count: budget.count,
+          search_used: searchUsed,
         },
       };
     }

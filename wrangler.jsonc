@@ -22,6 +22,8 @@
     "MOA_MIN_SUCCESSFUL_PROPOSERS": "1",
     "MOA_JUDGE_ENABLED": "true",
     "MOA_LOG_LEVEL": "info",
+    "MOA_SEARCH_PROVIDER": "anysearch",
+    "MOA_SEARCH_MAX_RESULTS": "5",
     "CLOUDFLARE_ACCOUNT_PLAN": "free",
     "WORKERS_AI_REGION": "US"
   },

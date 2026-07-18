@@ -1,4 +1,6 @@
 import type { Env } from "./env";
+import type { SearchConfig } from "./moa/search";
+import { getSearchConfig } from "./moa/search";
 
 export type Language = "auto" | "zh-CN" | "en-US";
 export type Mode = "quality" | "balanced" | "fast";
@@ -19,6 +21,8 @@ export interface RuntimeConfig {
   judgeEnabled: boolean;
   accountPlan: string;
   region: string;
+  /** 联网检索配置（DRACO 深度研究任务用）。 */
+  search: SearchConfig;
 }
 
 function positiveInt(value: string | undefined, fallback: number): number {
@@ -53,5 +57,6 @@ export function getRuntimeConfig(env: Env): RuntimeConfig {
     judgeEnabled: env.MOA_JUDGE_ENABLED === "true",
     accountPlan: env.CLOUDFLARE_ACCOUNT_PLAN ?? "free",
     region: env.WORKERS_AI_REGION ?? "US",
+    search: getSearchConfig(env),
   };
 }
