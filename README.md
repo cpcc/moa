@@ -193,6 +193,8 @@ DATASETS="draco" bash evalscope/run_eval.sh 100
 
 DRACO 100 个深度研究任务，4 维度 rubric（factual accuracy / breadth & depth / presentation quality / citation quality），LLM-as-judge 评分。需启用联网搜索。
 
+当前结果（Preset A，AnySearch 免费档）：overall 均值 **18.6%**，中位数 0.0%，仅 10% 任务 ≥ 60%。**未达对标 Fable 5 的目标**。主要瓶颈是 citation（9.1%）与 completeness（15.2%）——免费搜索对长尾学术题覆盖不足，且中小模型在严格引用规范下表现偏弱。基础基准（GSM8K / ARC / C-Eval）98.6% 表明推理与知识能力本身可用，深度研究任务的搜索 + 引用链路是下一步重点改进方向。
+
 ## 项目结构
 
 ```
