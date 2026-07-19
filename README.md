@@ -193,7 +193,9 @@ DATASETS="draco" bash evalscope/run_eval.sh 100
 
 DRACO 100 个深度研究任务，4 维度 rubric（factual accuracy / breadth & depth / presentation quality / citation quality），LLM-as-judge 评分。需启用联网搜索。
 
-当前结果（Preset A，AnySearch 免费档）：overall 均值 **18.6%**，中位数 0.0%，仅 10% 任务 ≥ 60%。**未达对标 Fable 5 的目标**。主要瓶颈是 citation（9.1%）与 completeness（15.2%）——免费搜索对长尾学术题覆盖不足，且中小模型在严格引用规范下表现偏弱。基础基准（GSM8K / ARC / C-Eval）98.6% 表明推理与知识能力本身可用，深度研究任务的搜索 + 引用链路是下一步重点改进方向。
+当前结果（Preset A，AnySearch 免费档）：overall 均值 **18.6%**，中位数 0.0%，仅 10% 任务 ≥ 60%。**未达对标 Fable 5 的目标。**
+
+拆解后发现主因是**基础设施超时**而非答案质量：100 题中 59 题 prediction 阶段连接失败（worker 内部 `MOA_REQUEST_TIMEOUT_MS=120s` 不够 MoA 五步调用），剩余 41 题真有答案的 overall 均值 **45.5%**、≥60% 占比 24%。也就是说 18.6% 的低分主要被超时拉下去，而非模型能力本身。下一步优先级：(1) 放宽 worker/eval 超时 + 重试，先把 59% 失败率压下来；(2) 给 aggregator 传入检索源并强制引用规范，提升 citation（当前 9.1%）；(3) 增加每任务检索次数（当前 `maxQueries=1` 偏薄）。基础基准（GSM8K / ARC / C-Eval）98.6% 表明推理与知识能力本身可用。
 
 ## 项目结构
 
